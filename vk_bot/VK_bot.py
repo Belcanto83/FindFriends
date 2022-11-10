@@ -8,7 +8,21 @@ from vkinder_database.postgres_db import VKinderPostgresqlDB
 from sqlalchemy.exc import OperationalError, IntegrityError
 
 
-class VkBot:
+class KeyBoardMaker:
+    @staticmethod
+    def _keyboard_start():
+        keyboard = VkKeyboard(one_time=True)
+        keyboard.add_button('Мужчина', VkKeyboardColor.SECONDARY)
+        keyboard.add_button('Женщина', VkKeyboardColor.SECONDARY)
+        keyboard.add_line()
+        keyboard.add_button('Избранное', VkKeyboardColor.POSITIVE)
+        keyboard.add_button('Черный список', VkKeyboardColor.NEGATIVE)
+        keyboard.add_line()
+        keyboard.add_button('Начать', VkKeyboardColor.PRIMARY)
+        return keyboard
+
+
+class VkBot(KeyBoardMaker):
     base_url = 'https://api.vk.com/method/'
 
     def __init__(self, bot_token, owner_token, user_id, vk_api_version='5.131'):
@@ -17,7 +31,9 @@ class VkBot:
         self.params = dict(access_token=bot_token, v=vk_api_version)
         self.user_id = user_id
         self.bot_menu = {
-            'начать': {'func': self._get_user_name, 'args': (), 'keyboard': self._keyboard_start},
+            'начать': {'func': self._message_start, 'args': (), 'keyboard': self._keyboard_start},
+            # 'мужчина': {'func': self._get_peer_user_info, 'args': (2,), 'keyboard': self._keyboard_start},
+            # 'женщина': {'func': self._get_peer_user_info, 'args': (1,), 'keyboard': self._keyboard_start},
         }
 
         # TODO 1: записать информацию о VK_ID пользователя бота в БД
@@ -35,8 +51,15 @@ class VkBot:
         response = requests.get(method_url, params=all_params).json()
         return response['response'][0]
 
-    def _get_user_name(self):
-        return self.user_info['first_name']
+    def _message_start(self):
+        user_name = self.user_info['first_name']
+        message = f"Привет, {user_name}!" \
+                  f" Я умею искать пары по соответствию твоего возраста и города." \
+                  f" Попробуем найти пару для тебя? Напиши 'мужчина' или 'женщина' для поиска пары " \
+                  f"или можно воспользоваться кнопками ниже..\nЧтобы начать все заново, " \
+                  f"напиши 'начать' или воспользуйся кнопкой"
+
+        return message
 
     def _get_peer_user_info(self, sex_id):
         self.peer_user_info['sex'] = sex_id
@@ -86,21 +109,17 @@ class VkBot:
         except OperationalError as err:
             print('Ошибка подключения к БД:', err)
 
-    @staticmethod
-    def _keyboard_start():
-        keyboard = VkKeyboard(one_time=True)
-        keyboard.add_button('Мужчина', VkKeyboardColor.SECONDARY)
-        keyboard.add_button('Женщина', VkKeyboardColor.SECONDARY)
-        return keyboard
+    # @staticmethod
+    # def _keyboard_start():
+    #     keyboard = VkKeyboard(one_time=True)
+    #     keyboard.add_button('Мужчина', VkKeyboardColor.SECONDARY)
+    #     keyboard.add_button('Женщина', VkKeyboardColor.SECONDARY)
+    #     return keyboard
 
     def new_message(self, request):
         if request in self.bot_menu:
             action = self.bot_menu.get(request)
-            message = f"Привет, {action.get('func')(*action.get('args'))}!" \
-                      f" Я умею искать пары по соответствию твоего возраста и города." \
-                      f" Попробуем найти пару для тебя? Напиши 'мужчина' или 'женщина' для поиска пары " \
-                      f"или можно воспользоваться кнопками ниже.."
-
+            message = action.get('func')(*action.get('args'))
             return message
         else:
             message = "Я пока такое не умею.."
