@@ -57,8 +57,14 @@ longpoll = VkLongPoll(vk)
 vk_bots = {}
 
 
-def write_msg(user_id, message):
-    vk.method('messages.send', {'user_id': user_id, 'message': message,  'random_id': randrange(10 ** 7), })
+def write_msg(user_id, message, keyboard=None):
+    post = {
+        'user_id': user_id,
+        'message': message,
+        'random_id': randrange(10 ** 7),
+        'keyboard': keyboard.get_keyboard() if keyboard else None,
+    }
+    vk.method('messages.send', post)
 
 
 for event in longpoll.listen():
@@ -71,4 +77,4 @@ for event in longpoll.listen():
                 vk_bots[event.user_id] = vk_bot
 
             request = event.text.lower()
-            write_msg(event.user_id, vk_bot.new_message(request))
+            write_msg(event.user_id, vk_bot.new_message(request), vk_bot.new_keyboard(request))
