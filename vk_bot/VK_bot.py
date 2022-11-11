@@ -55,9 +55,9 @@ class VkBot(KeyBoardMaker):
             'начать': {'func': self._message_start, 'args': (),
                        'keyboard': self._keyboard_start, 'attachment': self._attachment_start},
             'мужчина': {'func': self._message_get_peer_user_info, 'args': (2,),
-                        'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_start},
+                        'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
             'женщина': {'func': self._message_get_peer_user_info, 'args': (1,),
-                        'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_start},
+                        'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
             'следующий': {'func': self._message_get_next_peer, 'args': (),
                           'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
         }
@@ -91,6 +91,7 @@ class VkBot(KeyBoardMaker):
         self.peer_user_generator = self._find_peer()
         # print('Generator', list(self.peer_user_generator))
         peer_user = next(self.peer_user_generator)
+        self.peer_user = peer_user
         message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
                   f"https://vk.com/id{peer_user.get('id')}\n"
 
