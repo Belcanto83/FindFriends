@@ -57,12 +57,13 @@ longpoll = VkLongPoll(vk)
 vk_bots = {}
 
 
-def write_msg(user_id, message, keyboard=None):
+def write_msg(user_id, message, keyboard=None, attachment=None):
     post = {
         'user_id': user_id,
         'message': message,
         'random_id': randrange(10 ** 7),
         'keyboard': keyboard.get_keyboard() if keyboard else None,
+        'attachment': attachment,
     }
     vk.method('messages.send', post)
 
@@ -73,8 +74,9 @@ for event in longpoll.listen():
         if event.to_me:
             vk_bot = vk_bots.get(event.user_id)
             if vk_bot is None:
-                vk_bot = VkBot(bot_token, owner_token, event.user_id)
+                vk_bot = VkBot(bot_token, owner_token, event.user_id, vk)
                 vk_bots[event.user_id] = vk_bot
 
             request = event.text.lower()
-            write_msg(event.user_id, vk_bot.new_message(request), vk_bot.new_keyboard(request))
+            write_msg(event.user_id, vk_bot.new_message(request), vk_bot.new_keyboard(request),
+                      vk_bot.new_attachment(request))

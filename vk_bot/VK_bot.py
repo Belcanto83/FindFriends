@@ -1,8 +1,10 @@
 import requests
 from vk_api.keyboard import VkKeyboard, VkKeyboardColor
+from vk_api.upload import VkUpload
 
 import json
 from datetime import datetime
+from io import BytesIO
 
 from vkinder_database.models import User, UserMark, Mark
 from vkinder_database.postgres_db import VKinderPostgresqlDB
@@ -40,21 +42,24 @@ class KeyBoardMaker:
 class VkBot(KeyBoardMaker):
     base_url = 'https://api.vk.com/method/'
 
-    def __init__(self, bot_token, owner_token, user_id, vk_api_version='5.131'):
+    def __init__(self, bot_token, owner_token, user_id, vk_auth, vk_api_version='5.131'):
+        self.vk_auth = vk_auth
         self.owner_token = owner_token
+        self.bot_token = bot_token
         self.vk_api_version = vk_api_version
         self.params = dict(access_token=bot_token, v=vk_api_version)
         self.user_id = user_id
         self.peer_user_info = {}
 
         self.bot_menu = {
-            'начать': {'func': self._message_start, 'args': (), 'keyboard': self._keyboard_start},
+            'начать': {'func': self._message_start, 'args': (),
+                       'keyboard': self._keyboard_start, 'attachment': self._attachment_start},
             'мужчина': {'func': self._message_get_peer_user_info, 'args': (2,),
-                        'keyboard': self._keyboard_find_next_peer},
+                        'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_start},
             'женщина': {'func': self._message_get_peer_user_info, 'args': (1,),
-                        'keyboard': self._keyboard_find_next_peer},
+                        'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_start},
             'следующий': {'func': self._message_get_next_peer, 'args': (),
-                          'keyboard': self._keyboard_find_next_peer},
+                          'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
         }
 
         # TODO 1: записать информацию о VK_ID пользователя бота в БД
@@ -93,6 +98,7 @@ class VkBot(KeyBoardMaker):
 
     def _message_get_next_peer(self):
         peer_user = next(self.peer_user_generator)
+        self.peer_user = peer_user
         message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
                   f"https://vk.com/id{peer_user.get('id')}\n"
 
@@ -114,15 +120,68 @@ class VkBot(KeyBoardMaker):
         method_params = {
             'access_token': self.owner_token,
             'v': self.vk_api_version,
-            'city_id': self.user_info.get('city').get('id'),
+            'city_id': self.user_info.get('city').get('id') if self.user_info.get('city') else 1,
             'sex': self.peer_user_info.get('sex'),
-            'age_from': (datetime.now().year - int(self.user_info.get('bdate')[-4:])) - 5,
-            'age_to': (datetime.now().year - int(self.user_info.get('bdate')[-4:])) + 5,
+            'age_from': (datetime.now().year - int(self.user_info.get('bdate')[-4:])) - 5
+            if self.user_info.get('bdate') else 20,
+            'age_to': (datetime.now().year - int(self.user_info.get('bdate')[-4:])) + 5
+            if self.user_info.get('bdate') else 99,
         }
         # resp = requests.get(method_url, params=method_params).json()
         # print('Response:', resp)
 
         return get_peer_users_generator()
+
+    def _get_user_photos(self, album_id, photos_count):
+        """Метод возвращает список фотографий пользователя (предполагаемого друга) в сети VK"""
+        method_url = self.base_url + 'photos.get'
+        method_params = {
+            'access_token': self.owner_token,
+            'v': self.vk_api_version,
+            'owner_id': self.peer_user.get('id'),
+            'album_id': str(album_id),
+            'extended': True,
+            'photo_sizes': True,
+            'rev': True,
+            'count': photos_count,
+        }
+        peer_photos = requests.get(method_url, params=method_params).json().get('response').get('items')
+        # возьмем из каждого объекта "peer_photo" только нужные нам атрибуты: url(max_size) и кол-во лайков
+        peer_photos_part_info = [{'url': photo.get('sizes')[-1].get('url'), 'likes': photo.get('likes').get('count')}
+                                 for photo in peer_photos]
+        # отсортируем фото по кол-ву лайков
+        photos_to_send = sorted(peer_photos_part_info, key=lambda itm: itm.get('likes'), reverse=True)[:3]
+        return photos_to_send
+
+    @staticmethod
+    def _upload_photos(upload, photos_to_upload):
+        if photos_to_upload:
+            photos_urls = [photo_to_upload.get('url') for photo_to_upload in photos_to_upload]
+            img_list = []
+            for photo_url in photos_urls:
+                img = requests.get(photo_url).content
+                f = BytesIO(img)
+                img_list.append(f)
+            response_objects = upload.photo_messages(img_list)
+            attachments = []
+            for itm in response_objects:
+                owner_id = itm['owner_id']
+                photo_id = itm['id']
+                access_key = itm['access_key']
+                attachment = f"photo{owner_id}_{photo_id}_{access_key}"
+                attachments.append(attachment)
+            return ','.join(attachments)
+        return None
+
+    @staticmethod
+    def _attachment_start():
+        return None
+
+    def _attachment_get_peer_user_photos(self):
+        upload = VkUpload(self.vk_auth)
+        peer_user_photos = self._get_user_photos('profile', 10)
+        attachment = self._upload_photos(upload, peer_user_photos)
+        return attachment
 
     def _add_user_to_db(self):
         db_creds_path = 'info_not_for_git/postgresql.json'
@@ -158,3 +217,12 @@ class VkBot(KeyBoardMaker):
         else:
             keyboard = None
             return keyboard
+
+    def new_attachment(self, request):
+        if request in self.bot_menu:
+            action = self.bot_menu.get(request)
+            attachment = action.get('attachment')()
+            return attachment
+        else:
+            attachment = None
+            return attachment
