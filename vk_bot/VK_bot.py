@@ -162,13 +162,19 @@ class VkBot(KeyBoardMaker):
             'rev': True,
             'count': photos_count,
         }
-        peer_photos = requests.get(method_url, params=method_params).json().get('response').get('items')
-        # возьмем из каждого объекта "peer_photo" только нужные нам атрибуты: url(max_size) и кол-во лайков
-        peer_photos_part_info = [{'url': photo.get('sizes')[-1].get('url'), 'likes': photo.get('likes').get('count')}
-                                 for photo in peer_photos]
-        # отсортируем фото по кол-ву лайков
-        photos_to_send = sorted(peer_photos_part_info, key=lambda itm: itm.get('likes'), reverse=True)[:3]
-        return photos_to_send
+        # peer_photos = requests.get(method_url, params=method_params).json().get('response').get('items')
+
+        response = requests.get(method_url, params=method_params).json().get('response')
+        if response:
+            peer_photos = response.get('items')
+
+            # возьмем из каждого объекта "peer_photo" только нужные нам атрибуты: url(max_size) и кол-во лайков
+            peer_photos_part_info = [{'url': photo.get('sizes')[-1].get('url'), 'likes': photo.get('likes').get('count')}
+                                     for photo in peer_photos]
+            # отсортируем фото по кол-ву лайков
+            photos_to_send = sorted(peer_photos_part_info, key=lambda itm: itm.get('likes'), reverse=True)[:3]
+            return photos_to_send
+        return []
 
     @staticmethod
     def _upload_photos(upload, photos_to_upload):
