@@ -19,12 +19,13 @@ class User(Base):
 class UserMark(Base):
     __tablename__ = "user_mark"
     user_id = sa.Column(sa.Integer, sa.ForeignKey("user.user_id"), nullable=False)
-    marked_user_id = sa.Column(sa.Integer, sa.ForeignKey("user.user_id"), nullable=False)
+    # marked_user_id = sa.Column(sa.Integer, sa.ForeignKey("user.user_id"), nullable=False)
+    marked_user_id = sa.Column(sa.Integer, nullable=False)
     mark_id = sa.Column(sa.Integer, sa.ForeignKey("mark.mark_id"), nullable=False)
     __table_args__ = (sa.PrimaryKeyConstraint("user_id", "marked_user_id"),)
 
     user = relationship("User", foreign_keys=[user_id])
-    marked_user = relationship("User", foreign_keys=[marked_user_id])
+    # marked_user = relationship("User", foreign_keys=[marked_user_id])
     mark = relationship("Mark", foreign_keys=[mark_id])
 
     # mark = relationship("Mark", back_populates="user_marks")

@@ -22,6 +22,7 @@ class VKinderPostgresqlDB:
         return engine
 
     def create_tables(self):
+        # Base.metadata.drop_all(self._engine)
         Base.metadata.create_all(self._engine)
 
     def new_session(self):

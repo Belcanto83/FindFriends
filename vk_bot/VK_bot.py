@@ -53,13 +53,15 @@ class VkBot(KeyBoardMaker):
 
         self.bot_menu = {
             'начать': {'func': self._message_start, 'args': (),
-                       'keyboard': self._keyboard_start, 'attachment': self._attachment_start},
+                       'keyboard': self._keyboard_start, 'attachment': self._attachment_none},
             'мужчина': {'func': self._message_get_peer_user_info, 'args': (2,),
                         'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
             'женщина': {'func': self._message_get_peer_user_info, 'args': (1,),
                         'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
             'следующий': {'func': self._message_get_next_peer, 'args': (),
                           'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
+            'в избранное': {'func': self._message_added_to_favorite, 'args': (1,),
+                            'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_none},
         }
 
         # TODO 1: записать информацию о VK_ID пользователя бота в БД
@@ -174,8 +176,14 @@ class VkBot(KeyBoardMaker):
             return ','.join(attachments)
         return None
 
+    def _message_added_to_favorite(self, mark):
+        self._add_peer_to_user_mark_table(mark)
+        message = f"Позьзователь {self.peer_user.get('first_name')} {self.peer_user.get('last_name')} " \
+                  f"добавлен в Избранное!"
+        return message
+
     @staticmethod
-    def _attachment_start():
+    def _attachment_none():
         return None
 
     def _attachment_get_peer_user_photos(self):
@@ -195,6 +203,27 @@ class VkBot(KeyBoardMaker):
             with session:
                 try:
                     VKinder_DB.add_row(session=session, model=User, data={'user_id': self.user_id})
+                    session.commit()
+                except IntegrityError:
+                    session.rollback()
+        except OperationalError as err:
+            print('Ошибка подключения к БД:', err)
+
+    def _add_peer_to_user_mark_table(self, mark):
+        db_creds_path = 'info_not_for_git/postgresql.json'
+        with open(db_creds_path) as f:
+            creds = json.load(f)
+        try:
+            VKinder_DB = VKinderPostgresqlDB('vkinder_db', creds)
+            session = VKinder_DB.new_session()
+            with session:
+                try:
+                    VKinder_DB.add_row(session=session, model=UserMark,
+                                       data={
+                                           'user_id': self.user_id,
+                                           'marked_user_id': self.peer_user.get('id'),
+                                           'mark_id': mark
+                                       })
                     session.commit()
                 except IntegrityError:
                     session.rollback()
