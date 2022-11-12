@@ -6,8 +6,8 @@ import json
 from datetime import datetime
 from io import BytesIO
 
-from vkinder_database.models import User, UserMark
-from vkinder_database.postgres_db import VKinderPostgresqlDB
+from .vkinder_database import User, UserMark
+from .vkinder_database import VKinderPostgresqlDB
 from sqlalchemy.exc import OperationalError, IntegrityError
 
 

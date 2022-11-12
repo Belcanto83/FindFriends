@@ -2,7 +2,7 @@
 import sqlalchemy as sa
 from sqlalchemy.orm import sessionmaker
 
-from models import Base
+from .models import Base
 
 
 class VKinderPostgresqlDB:
