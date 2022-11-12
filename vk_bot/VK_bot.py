@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from io import BytesIO
 
-from vkinder_database.models import User, UserMark, Mark
+from vkinder_database.models import User, UserMark
 from vkinder_database.postgres_db import VKinderPostgresqlDB
 from sqlalchemy.exc import OperationalError, IntegrityError
 
@@ -62,6 +62,9 @@ class VkBot(KeyBoardMaker):
                           'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_get_peer_user_photos},
             'в избранное': {'func': self._message_added_to_favorite, 'args': (1,),
                             'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_none},
+            'избранное': {'func': self._message_get_peers_by_mark, 'args': (1,),
+                            'keyboard': self._keyboard_find_next_peer, 'attachment': self._attachment_none},
+
         }
 
         # TODO 1: записать информацию о VK_ID пользователя бота в БД
@@ -105,6 +108,17 @@ class VkBot(KeyBoardMaker):
         message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
                   f"https://vk.com/id{peer_user.get('id')}\n"
 
+        return message
+
+    def _message_get_peers_by_mark(self, mark):
+        peer_ids = self._get_peer_users_by_mark(mark)
+        peer_users = []
+        for peer_user_id in peer_ids:
+            peer_user = self._get_user_info_from_vk_id(peer_user_id)
+            peer_message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
+                           f"https://vk.com/id{peer_user.get('id')}\n"
+            peer_users.append(peer_message)
+        message = '\n'.join(peer_users)
         return message
 
     def _find_peer(self):
@@ -227,6 +241,21 @@ class VkBot(KeyBoardMaker):
                     session.commit()
                 except IntegrityError:
                     session.rollback()
+        except OperationalError as err:
+            print('Ошибка подключения к БД:', err)
+
+    def _get_peer_users_by_mark(self, mark):
+        db_creds_path = 'info_not_for_git/postgresql.json'
+        with open(db_creds_path) as f:
+            creds = json.load(f)
+        try:
+            VKinder_DB = VKinderPostgresqlDB('vkinder_db', creds)
+            session = VKinder_DB.new_session()
+            with session:
+                favorite_list = session.query(UserMark).filter(
+                    UserMark.user_id == self.user_id and UserMark.mark == mark).all()
+                peer_ids = [row.marked_user_id for row in favorite_list]
+                return peer_ids
         except OperationalError as err:
             print('Ошибка подключения к БД:', err)
 
