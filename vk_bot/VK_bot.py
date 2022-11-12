@@ -118,13 +118,16 @@ class VkBot(KeyBoardMaker):
 
     def _message_get_peers_by_mark(self, mark):
         peer_ids = self._get_peer_users_by_mark(mark)
-        peer_users = []
-        for peer_user_id in peer_ids:
-            peer_user = self._get_user_info_from_vk_id(peer_user_id)
-            peer_message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
-                           f"https://vk.com/id{peer_user.get('id')}\n"
-            peer_users.append(peer_message)
-        message = '\n'.join(peer_users)
+        if peer_ids:
+            peer_users = []
+            for peer_user_id in peer_ids:
+                peer_user = self._get_user_info_from_vk_id(peer_user_id)
+                peer_message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
+                               f"https://vk.com/id{peer_user.get('id')}\n"
+                peer_users.append(peer_message)
+            message = '\n'.join(peer_users)
+            return message
+        message = "Вы пока еще никого не добавили в Избранное.. Давай начнем поиск, чтобы найти подходящих людей?"
         return message
 
     def _find_peer(self):
