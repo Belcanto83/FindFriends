@@ -49,6 +49,8 @@ class VkBot(KeyBoardMaker):
         self.vk_api_version = vk_api_version
         self.params = dict(access_token=bot_token, v=vk_api_version)
         self.user_id = user_id
+        self.peer_user_generator = None
+        self.peer_user = None
         self.peer_user_info = {}
 
         self.bot_menu = {
@@ -103,11 +105,15 @@ class VkBot(KeyBoardMaker):
         return message
 
     def _message_get_next_peer(self):
-        peer_user = next(self.peer_user_generator)
-        self.peer_user = peer_user
-        message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
-                  f"https://vk.com/id{peer_user.get('id')}\n"
+        if self.peer_user_generator:
+            peer_user = next(self.peer_user_generator)
+            self.peer_user = peer_user
+            message = f"{peer_user.get('first_name')} {peer_user.get('last_name')}\n" \
+                      f"https://vk.com/id{peer_user.get('id')}\n"
 
+            return message
+        message = "Вы пока еще не выбрали критерии поиска. Пожалуйста, задайте критерии поиска " \
+                  "или введите команду 'начать', чтобы начать все сначала.."
         return message
 
     def _message_get_peers_by_mark(self, mark):
@@ -197,9 +203,13 @@ class VkBot(KeyBoardMaker):
         return None
 
     def _message_added_to_favorite(self, mark):
-        self._add_peer_to_user_mark_table(mark)
-        message = f"Позьзователь {self.peer_user.get('first_name')} {self.peer_user.get('last_name')} " \
-                  f"добавлен в Избранное!"
+        if self.peer_user:
+            self._add_peer_to_user_mark_table(mark)
+            message = f"Позьзователь {self.peer_user.get('first_name')} {self.peer_user.get('last_name')} " \
+                      f"добавлен в Избранное!"
+            return message
+        message = "Вы пока еще не выбрали критерии поиска.. Пожалуйста, задайте критерии поиска или введите " \
+                  "команду 'начать', чтобы начать все сначала.."
         return message
 
     @staticmethod
@@ -208,9 +218,11 @@ class VkBot(KeyBoardMaker):
 
     def _attachment_get_peer_user_photos(self):
         upload = VkUpload(self.vk_auth)
-        peer_user_photos = self._get_user_photos('profile', 10)
-        attachment = self._upload_photos(upload, peer_user_photos)
-        return attachment
+        if self.peer_user:
+            peer_user_photos = self._get_user_photos('profile', 10)
+            attachment = self._upload_photos(upload, peer_user_photos)
+            return attachment
+        return None
 
     def _add_user_to_db(self):
         db_creds_path = 'info_not_for_git/postgresql.json'
