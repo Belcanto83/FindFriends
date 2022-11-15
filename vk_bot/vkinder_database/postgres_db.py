@@ -13,7 +13,7 @@ class VKinderPostgresqlDB:
         self.db_user = credentials.get('user')
         self.db_pass = credentials.get('pass')
         self._engine = self.create_db_engine()
-        self.create_tables()
+        # self.create_tables()
         self.class_session = sessionmaker(bind=self._engine)
 
     def create_db_engine(self, host='localhost', port=5432):

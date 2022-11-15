@@ -49,11 +49,11 @@ class ViewHistory(Base):
     __tablename__ = "view_history"
     view_id = sa.Column(sa.Integer, primary_key=True)
     viewer_id = sa.Column(sa.Integer, sa.ForeignKey("user.user_id"), nullable=False)
-    viewed_id = sa.Column(sa.Integer, sa.ForeignKey("user.user_id"), nullable=False)
+    viewed_id = sa.Column(sa.Integer, nullable=False)
     view_date = sa.Column(sa.DateTime, nullable=False)
 
     viewer = relationship("User", foreign_keys=[viewer_id])
-    viewed = relationship("User", foreign_keys=[viewed_id])
+    # viewed = relationship("User", foreign_keys=[viewed_id])
 
     # user = relationship("User", back_populates="view_histories")
 
