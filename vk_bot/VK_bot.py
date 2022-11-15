@@ -73,7 +73,7 @@ class VkBot(KeyBoardMaker):
         self.VKinder_DB = self._create_db_connection()
 
         # TODO 1: записать информацию о VK_ID пользователя бота в БД
-        self._add_user_to_db()
+        self._add_info_to_db(model=User, data={'user_id': self.user_id})
         self.user_info = self._get_user_info_from_vk_id(user_id)
 
     def _get_user_info_from_vk_id(self, user_id):
@@ -211,7 +211,13 @@ class VkBot(KeyBoardMaker):
 
     def _message_added_to_favorite(self, mark):
         if self.peer_user:
-            self._add_peer_to_user_mark_table(mark)
+            # self._add_peer_to_user_mark_table(mark)
+            self._add_info_to_db(model=UserMark,
+                                 data={
+                                     'user_id': self.user_id,
+                                     'marked_user_id': self.peer_user.get('id'),
+                                     'mark_id': mark}
+                                 )
             message = f"Позьзователь {self.peer_user.get('first_name')} {self.peer_user.get('last_name')} " \
                       f"добавлен в Избранное!"
             return message
@@ -231,25 +237,34 @@ class VkBot(KeyBoardMaker):
             return attachment
         return None
 
-    def _add_user_to_db(self):
-        session = self.VKinder_DB.new_session()
-        with session:
-            try:
-                self.VKinder_DB.add_row(session=session, model=User, data={'user_id': self.user_id})
-                session.commit()
-            except IntegrityError:
-                session.rollback()
+    # def _add_user_to_db(self):
+    #     session = self.VKinder_DB.new_session()
+    #     with session:
+    #         try:
+    #             self.VKinder_DB.add_row(session=session, model=User, data={'user_id': self.user_id})
+    #             session.commit()
+    #         except IntegrityError:
+    #             session.rollback()
 
-    def _add_peer_to_user_mark_table(self, mark):
+    # def _add_peer_to_user_mark_table(self, mark):
+    #     session = self.VKinder_DB.new_session()
+    #     with session:
+    #         try:
+    #             self.VKinder_DB.add_row(session=session, model=UserMark,
+    #                                     data={
+    #                                         'user_id': self.user_id,
+    #                                         'marked_user_id': self.peer_user.get('id'),
+    #                                         'mark_id': mark
+    #                                     })
+    #             session.commit()
+    #         except IntegrityError:
+    #             session.rollback()
+
+    def _add_info_to_db(self, model, data):
         session = self.VKinder_DB.new_session()
         with session:
             try:
-                self.VKinder_DB.add_row(session=session, model=UserMark,
-                                        data={
-                                            'user_id': self.user_id,
-                                            'marked_user_id': self.peer_user.get('id'),
-                                            'mark_id': mark
-                                        })
+                self.VKinder_DB.add_row(session=session, model=model, data=data)
                 session.commit()
             except IntegrityError:
                 session.rollback()
